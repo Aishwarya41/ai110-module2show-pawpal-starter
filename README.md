@@ -42,17 +42,46 @@ pip install -r requirements.txt
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
 
+## 🛠️ Implementation Summary
+
+The core logic lives in `pawpal_system.py` (backend only, no UI yet). `main.py` is a demo script that runs it in the terminal.
+
+**Classes**
+
+- `Task` (dataclass): one activity with a name, duration, priority, optional preferred time, frequency and completion status. `mark_completed()` and `edit_task()` update it.
+- `Pet` (dataclass): pet details plus its own list of tasks. `add_task()` also stamps the task with the pet's name.
+- `Owner`: holds a list of pets and a daily time budget (`available_minutes`). `get_all_tasks()` returns every pet's tasks in one list.
+- `Scheduler`: the "brain". It reads tasks through `owner.get_all_tasks()`, so it works across all of an owner's pets, not just one.
+
+**How they work together**
+
+1. An `Owner` has many `Pet`s, and each `Pet` has many `Task`s.
+2. `Scheduler` is created with an owner and asks it for all tasks, skipping completed ones.
+3. `generate_plan()` sorts the tasks by priority, then preferred time, then duration, and places them starting at 08:00 (or at their preferred time if later).
+4. Tasks that no longer fit in the owner's `available_minutes` go to `unscheduled_tasks`.
+5. Each placed task becomes a `ScheduledItem` (task, start time, reason). `get_summary()` and `explain_plan()` print the plan and the reasoning.
+
+**Known limits:** `frequency` is stored but not acted on yet (no recurring tasks), preferred times are soft hints with no conflict detection, and priority is a plain string (`high`, `medium`, `low`).
+
 ## 🖥️ Sample Output
 
-Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
+========================================
+Today's Schedule
+========================================
+Plan for Jordan on 2026-10-19
+  08:00  Morning walk - Buddy (30 min, high)
+  08:30  Breakfast - Mia (10 min, high)
+  12:00  Give medication - Mia (5 min, high)
+  17:00  Play session - Mia (25 min, medium)
+  18:00  Brush coat - Buddy (20 min, low)
+Total: 90 of 120 minutes
 
-```
-# e.g.:
-# Daily plan for Biscuit (Golden Retriever):
-#   08:00 — Morning walk (30 min) [priority: high]
-#   09:00 — Feeding (10 min) [priority: high]
-#   ...
-```
+Why this plan:
+08:00 Morning walk (Buddy): High priority, preferred time 07:30; fits within 120 available minutes
+08:30 Breakfast (Mia): High priority, preferred time 08:00; fits within 120 available minutes
+12:00 Give medication (Mia): High priority, preferred time 12:00; fits within 120 available minutes
+17:00 Play session (Mia): Medium priority, preferred time 17:00; fits within 120 available minutes
+18:00 Brush coat (Buddy): Low priority, preferred time 18:00; fits within 120 available minutes
 
 ## 🧪 Testing PawPal+
 
@@ -92,3 +121,4 @@ Describe your app in numbered steps so a reader can follow along without watchin
 5. <!-- Add more steps as needed -->
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+
