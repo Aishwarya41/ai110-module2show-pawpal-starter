@@ -1,0 +1,44 @@
+classDiagram
+    class Owner {
+        +String name
+        +String contact
+        +List~Pet~ pets
+        +String preferences
+        +addPet(pet) void
+        +updateInfo() void
+    }
+
+    class Pet {
+        +String name
+        +String species
+        +String breed
+        +List~Tasks~ tasks
+        +addTask(task) void
+        +removeTask(task) void
+        +getTasks() List~Tasks~
+    }
+
+    class Tasks {
+        +String name
+        +int duration
+        +String priority
+        +String category
+        +boolean isCompleted
+        +String notes
+        +editTask() void
+        +markCompleted() void
+    }
+
+    class Schedule {
+        +Date date
+        +List~Tasks~ scheduledItems
+        +int totalTime
+        +generatePlan(owner, tasks) void
+        +explainPlan() String
+        +getSummary() String
+    }
+
+    Owner "1" --> "*" Pet : owns
+    Pet "1" --> "*" Tasks : has
+    Schedule "1" o-- "*" Tasks : scheduledItems
+    Schedule ..> Owner : uses to generate plan

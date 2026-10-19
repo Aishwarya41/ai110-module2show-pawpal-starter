@@ -5,12 +5,34 @@
 **a. Initial design**
 
 - Briefly describe your initial UML design.
+The user should be able to add a pet, schedule a walk, see today's tasks.
+
 - What classes did you include, and what responsibilities did you assign to each?
+Four classes:
+
+Owner
+Attributes: name, contact, pets, preferences
+Methods: addPet(), updateInfor()
+
+Pet
+Attributes: name, species, breed, tasks
+Method: addTask(), removeTask(), getTasks()
+
+Tasks
+Attributes: name, duration, priority, category, is Completed(), notes
+Methods: editTask(), markCompleted()
+
+Schedule
+Attributes: date, scheduledItems, totalTime
+Methods: generatePlan(owner, tasks), explainPlan(), getSummary()
 
 **b. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
+
+Schedule had no start times or reasons.
+The change was to add a small ScheduledItem dataclass (task, start_time, reason) and make scheduled_items a list of those.
 
 ---
 
