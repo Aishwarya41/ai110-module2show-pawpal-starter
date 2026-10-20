@@ -54,10 +54,10 @@ I decided that the time budget mattered the most, then the priority and then the
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
-One tradeoff that this scheduler makes is that it sorts by priority first and places tasks in that order, one after another. It does not check for overlaps with a task's preferred time. A lower-priority task with an earlier preferred time can end up after a higher-priority one, and a task's start time can be pushed later than the owner asked for.
+One tradeoff is that the scheduler warns about conflicts but does not resolve them. The scheduler checks whether two tasks' time slots overlap (start time through start time plus duration), not just whether they start at the same minute. It reports a warning like "'Play session' (Mia, 17:00) overlaps 'Nail trim' (Mia, 17:10)". It does not decide which task should move. The planner only pushes the lower-priority task later, so the final plan never double-books.
 
 - Why is that tradeoff reasonable for this scenario?
-This tradeoff is reasonable because it keeps the logic simple and predictable, which suits a first version. It guarantees the important tasks get done within the available time, which matters more than hitting an exact minute.
+The scheduler can't know what the owner actually wants. Two tasks at 12:00 might be a real mistake, or the owner might be able to do both at once, like feeding one pet while walking another. A warning keeps the owner in control, never crashes, and is simple enough to test.
 
 ---
 

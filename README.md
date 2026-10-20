@@ -61,7 +61,7 @@ The core logic lives in `pawpal_system.py` (backend only, no UI yet). `main.py` 
 4. Tasks that no longer fit in the owner's `available_minutes` go to `unscheduled_tasks`.
 5. Each placed task becomes a `ScheduledItem` (task, start time, reason). `get_summary()` and `explain_plan()` print the plan and the reasoning.
 
-**Known limits:** `frequency` is stored but not acted on yet (no recurring tasks), preferred times are soft hints with no conflict detection, and priority is a plain string (`high`, `medium`, `low`).
+**Known limits:** conflicts are reported as warnings but not resolved, priority is a plain string (`high`, `medium`, `low`), and times are not validated when a task is created. See Smarter Scheduling below for what the scheduler does beyond the basic plan.
 
 ## 🖥️ Sample Output
 
@@ -101,14 +101,59 @@ Sample test output:
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
+All of these live in `pawpal_system.py`. `main.py` demonstrates each one in the terminal.
 
-| Feature | Method(s) | Notes |
-|---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Feature | Method(s) | What it does |
+|---------|-----------|--------------|
+| Sorting by time | `Scheduler.sort_by_time()` | Orders tasks by preferred start time, earliest first |
+| Filtering | `Scheduler.filter_tasks()`, `Scheduler.get_tasks()` | Keeps tasks matching a pet name and/or completion status |
+| Conflict detection | `Scheduler.detect_conflicts()` | Returns a warning for each pair of overlapping timed tasks |
+| Recurring tasks | `Task.next_occurrence()`, `Task.mark_completed()`, `Scheduler.complete_task()` | Creates the next daily or weekly task when one is completed |
+
+### Sorting by time: `Scheduler.sort_by_time(tasks)`
+
+- Compares times as minutes since midnight rather than as text.
+- A time that isn't in `HH:MM` form raises a `ValueError`.
+- Tasks with no preferred time (flexible) go last.
+- Tasks with the same time keep the order they were added in.
+- Returns a new list and leaves the original unchanged.
+
+This is separate from the plan's own ordering. `generate_plan()` still sorts by priority first (via `Scheduler._sort_key`), then preferred time, then duration.
+
+### Filtering: `Scheduler.filter_tasks(tasks, pet_name=None, completed=None)`
+
+- `pet_name="Mia"` keeps only Mia's tasks.
+- `completed=True` keeps finished tasks and `completed=False` keeps pending ones.
+- A filter left as `None` is ignored, and when both are given a task must match both.
+- `Scheduler.get_tasks(pet_name, completed)` applies the same filters to all of the owner's pets' tasks.
+- Filtering and sorting chain: `Scheduler.sort_by_time(scheduler.filter_tasks(tasks, pet_name="Buddy", completed=False))`.
+
+### Conflict detection: `Scheduler.detect_conflicts(tasks=None)`
+
+- Each task with a preferred time occupies the slot from its start to start + duration. Two tasks conflict when each starts before the other ends, so a task that starts exactly when another ends is not a conflict.
+- It checks every pair of tasks, both for the same pet and across different pets, because the owner can only do one thing at a time.
+- It returns warning strings and never raises. A task with an unreadable time gets its own warning and is skipped.
+- `generate_plan()` runs it automatically and stores the result in `scheduler.conflicts`. `get_summary()` prints the warnings.
+
+Example warnings:
+
+```
+Warning: 'Vet call' (Buddy, 12:00) overlaps 'Give medication' (Mia, 12:00) [different pets].
+Warning: 'Play session' (Mia, 17:00) overlaps 'Nail trim' (Mia, 17:10) [same pet].
+```
+
+Tradeoff: conflicts are only reported. The planner still moves the later task back so the final schedule never double-books, but it does not ask the owner which task should win.
+
+### Recurring tasks
+
+- `Task.next_occurrence()` builds the next copy of a task. `"daily"` adds 1 day and `"weekly"` adds 7 days to its `due_date` (or to today if it has none). `"once"` tasks return `None`.
+- `Task.mark_completed()` marks the task done and returns that next copy. Completing a task a second time returns `None`, so it can't create duplicates.
+- `Scheduler.complete_task(task)` is the method to call in the app. It marks the task done and adds the new copy to the same pet.
+- `generate_plan()` skips tasks whose `due_date` is after the plan's date, so tomorrow's copy doesn't appear in today's plan.
+
+```python
+scheduler.complete_task(walk)   # walk is done; a new walk due tomorrow is added to the same pet
+```
 
 ## 📸 Demo Walkthrough
 
