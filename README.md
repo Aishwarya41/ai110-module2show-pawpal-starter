@@ -85,19 +85,26 @@ Why this plan:
 
 ## 🧪 Testing PawPal+
 
+Run the full test suite from the project root:
+
 ```bash
-# Run the full test suite:
-pytest
-
-# Run with coverage:
-pytest --cov
+python -m pytest
 ```
 
-Sample test output:
+Add `-v` to list each test by name. The tests are in `tests/test_pawpal.py` and cover the scheduling logic in `pawpal_system.py`:
 
+- **Sorting:** tasks come back in chronological order, times compare as numbers ("9:00" before "10:00"), flexible tasks go last, ties keep their original order, and the input list isn't changed. The plan itself orders by priority, then time.
+- **Recurring tasks:** completing a daily task adds a copy due the next day to the same pet, weekly tasks recur 7 days later, "once" tasks don't recur, completing a task twice creates no duplicate, and year-end dates roll over. Tomorrow's copy is left out of today's plan.
+- **Conflict detection:** duplicate start times and overlaps are flagged, including across different pets. Back-to-back tasks, flexible tasks and unreadable times don't cause false alarms or crashes.
+- **Plan generation:** the daily time budget is respected (inclusive at the limit), a task that doesn't fit is skipped while a later short one is still scheduled, regenerating the plan gives the same result, and an empty plan is handled.
+
+Expected result:
 ```
-# Paste your pytest output here
+================ 24 passed in 0.13s ======================
 ```
+
+Confidence Level: 4 out of 5
+All 24 tests pass, and they cover the three required areas: sorting, recurrence and conflict detection.
 
 ## 📐 Smarter Scheduling
 
