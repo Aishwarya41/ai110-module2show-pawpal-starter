@@ -5,6 +5,12 @@ from pawpal_system import Owner, Pet, Scheduler, Task
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
+PRIORITY_BADGE = {"high": "🔴 high", "medium": "🟡 medium", "low": "🟢 low"}
+
+
+def priority_badge(priority: str) -> str:
+    return PRIORITY_BADGE.get(priority, priority)
+
 st.title("🐾 PawPal+")
 
 st.markdown(
@@ -103,22 +109,68 @@ if owner.pets:
 else:
     st.caption("Add a pet first, then you can add tasks for it.")
 
-all_tasks = owner.get_all_tasks()
-if all_tasks:
-    st.write("Current tasks:")
-    st.table(
-        [
-            {
-                "pet": t.pet_name,
-                "task": t.name,
-                "duration (min)": t.duration,
-                "priority": t.priority,
-                "preferred time": t.time or "-",
-                "done": t.is_completed,
-            }
-            for t in all_tasks
-        ]
+scheduler = Scheduler(owner)
+
+if owner.get_all_tasks():
+    st.subheader("Task list")
+    col1, col2 = st.columns(2)
+    with col1:
+        pet_filter = st.selectbox("Show pet", ["All pets"] + [p.name for p in owner.pets])
+    with col2:
+        status_filter = st.selectbox("Show status", ["All", "Pending", "Completed"])
+
+    shown = scheduler.get_tasks(
+        pet_name=None if pet_filter == "All pets" else pet_filter,
+        completed={"All": None, "Pending": False, "Completed": True}[status_filter],
     )
+    if shown:
+        st.caption(f"{len(shown)} task(s), sorted by preferred time. Tasks with no time are listed last.")
+        st.table(
+            [
+                {
+                    "Time": t.time or "Flexible",
+                    "Pet": t.pet_name,
+                    "Task": t.name,
+                    "Duration": f"{t.duration} min",
+                    "Priority": priority_badge(t.priority),
+                    "Repeats": t.frequency,
+                    "Due": str(t.due_date) if t.due_date else "Today",
+                    "Status": "✅ Done" if t.is_completed else "⏳ Pending",
+                }
+                for t in Scheduler.sort_by_time(shown)
+            ]
+        )
+    else:
+        st.info("No tasks match those filters.")
+
+    # Surface overlapping tasks as soon as they exist, not only after generating a schedule.
+    conflicts = scheduler.detect_conflicts()
+    if conflicts:
+        st.warning(
+            f"⚠️ {len(conflicts)} scheduling conflict(s). You can only do one thing at a time, "
+            "so consider changing one of the times:\n\n" + "\n".join(f"- {c.removeprefix('Warning: ')}" for c in conflicts)
+        )
+    elif any(t.time for t in scheduler.get_tasks(completed=False)):
+        st.success("No scheduling conflicts between your timed tasks.")
+
+    pending = scheduler.get_tasks(completed=False)
+    if pending:
+        to_complete = st.selectbox(
+            "Mark a task done",
+            pending,
+            format_func=lambda t: f"{t.name} ({t.pet_name})" + (f" at {t.time}" if t.time else ""),
+        )
+        if st.button("Mark done"):
+            next_task = scheduler.complete_task(to_complete)
+            if next_task:
+                st.session_state.flash = (
+                    f"Done! Next '{next_task.name}' ({next_task.frequency}) is due {next_task.due_date}."
+                )
+            else:
+                st.session_state.flash = f"Done! '{to_complete.name}' doesn't repeat."
+            st.rerun()  # redraw the table above with the updated tasks
+    if "flash" in st.session_state:
+        st.success(st.session_state.pop("flash"))
 else:
     st.info("No tasks yet. Add one above.")
 
@@ -127,27 +179,37 @@ st.divider()
 st.subheader("Build Schedule")
 
 if st.button("Generate schedule"):
-    scheduler = Scheduler(owner)
     scheduler.generate_plan()
     if scheduler.scheduled_items:
-        st.success(f"Plan for {owner.name}: {scheduler.total_time} of {owner.available_minutes} minutes used")
+        st.success(f"Plan ready for {owner.name} on {scheduler.date}.")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Tasks scheduled", len(scheduler.scheduled_items))
+        col2.metric("Time used", f"{scheduler.total_time} min")
+        col3.metric("Time left", f"{owner.available_minutes - scheduler.total_time} min")
         st.table(
             [
                 {
-                    "start": item.start_time,
-                    "pet": item.task.pet_name,
-                    "task": item.task.name,
-                    "duration (min)": item.task.duration,
-                    "priority": item.task.priority,
+                    "Start": item.start_time,
+                    "Pet": item.task.pet_name,
+                    "Task": item.task.name,
+                    "Duration": f"{item.task.duration} min",
+                    "Priority": priority_badge(item.task.priority),
                 }
                 for item in scheduler.scheduled_items
             ]
         )
+        if scheduler.conflicts:
+            st.warning(
+                "Some preferred times overlapped, so later tasks were pushed back to avoid double-booking:\n\n"
+                + "\n".join(f"- {c.removeprefix('Warning: ')}" for c in scheduler.conflicts)
+            )
         with st.expander("Why this plan?", expanded=True):
             st.text(scheduler.explain_plan())
     else:
         st.warning("Nothing to schedule yet. Add a pet and some tasks.")
     if scheduler.unscheduled_tasks:
-        st.warning(
-            "Not enough time for: " + ", ".join(f"{t.name} ({t.pet_name})" for t in scheduler.unscheduled_tasks)
+        st.error(
+            "Not enough time today for: "
+            + ", ".join(f"{t.name} ({t.pet_name}, {t.duration} min)" for t in scheduler.unscheduled_tasks)
+            + ". Increase your available time or shorten a task."
         )

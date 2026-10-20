@@ -1,0 +1,70 @@
+classDiagram
+    class Owner {
+        +String name
+        +String contact
+        +String preferences
+        +int available_minutes
+        +List~Pet~ pets
+        +add_pet(pet)
+        +update_info()
+        +get_all_tasks() List~Task~
+    }
+
+    class Pet {
+        +String name
+        +String species
+        +String breed
+        +List~Task~ tasks
+        +add_task(task)
+        +remove_task(task)
+        +get_tasks() List~Task~
+    }
+
+    class Task {
+        +String name
+        +int duration
+        +String priority
+        +String time
+        +String frequency
+        +String category
+        +bool is_completed
+        +String notes
+        +String pet_name
+        +Date due_date
+        +edit_task()
+        +next_occurrence() Task
+        +mark_completed() Task
+    }
+
+    class ScheduledItem {
+        +Task task
+        +String start_time
+        +String reason
+    }
+
+    class Scheduler {
+        +Owner owner
+        +Date date
+        +String day_start
+        +List~ScheduledItem~ scheduled_items
+        +List~Task~ unscheduled_tasks
+        +int total_time
+        +List~String~ conflicts
+        +get_tasks(pet_name, completed) List~Task~
+        +complete_task(task) Task
+        +filter_tasks(tasks, pet_name, completed)$ List~Task~
+        +sort_by_time(tasks)$ List~Task~
+        +detect_conflicts(tasks) List~String~
+        +generate_plan()
+        +explain_plan() String
+        +get_summary() String
+    }
+
+    Owner "1" --> "*" Pet : owns
+    Pet "1" --> "*" Task : has
+    Scheduler "1" --> "1" Owner : plans for
+    Scheduler "1" *-- "*" ScheduledItem : scheduled_items
+    ScheduledItem "*" --> "1" Task : places
+    Scheduler "1" --> "*" Task : unscheduled_tasks
+    Task ..> Task : next_occurrence creates
+    Scheduler ..> Pet : complete_task adds next occurrence

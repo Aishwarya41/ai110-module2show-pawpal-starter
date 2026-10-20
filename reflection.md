@@ -29,10 +29,21 @@ Methods: generatePlan(owner, tasks), explainPlan(), getSummary()
 **b. Design changes**
 
 - Did your design change during implementation?
+Yes
+
 - If yes, describe at least one change and why you made it.
 
-Schedule had no start times or reasons.
-The change was to add a small ScheduledItem dataclass (task, start_time, reason) and make scheduled_items a list of those.
+Yes, the design changed in two rounds.
+
+First, Schedule had no start times or reasons. I added a small ScheduledItem dataclass (task, start_time, reason) and made scheduled_items a list of those. The class also became Scheduler, since it does the planning.
+
+Second, when I added the smarter scheduling features, I added:
+- Task.due_date, so a recurring task's next copy isn't scheduled until the day it is due.
+- next_occurrence() and complete_task(), so finishing a daily or weekly task creates the next one on the same pet.
+- filter_tasks() and sort_by_time(), so tasks can be filtered by pet or status and ordered by time.
+- detect_conflicts() and a conflicts list, so overlapping tasks produce warnings.
+
+The final design is in diagrams/uml_final.mmd.
 
 ---
 
@@ -66,20 +77,24 @@ The scheduler can't know what the owner actually wants. Two tasks at 12:00 might
 **a. How you used AI**
 
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-I used AI at each stage. It helped me design the classes, pointed out gaps in my first UML, wrote the skeleton and then the implementation, and helped with the tests. I worked in small steps and asked it to fix one issue at a time.
+I used AI at every stage. It helped me design the classes and find gaps in my first UML, then wrote the skeleton and the implementation. Later it added sorting, filtering, recurring tasks and conflict detection, wrote the tests, docstrings and README, and helped me simplify code. I worked in small steps and asked for one change at a time.
 
 - What kinds of prompts or questions were most helpful?
-Asking "do you notice any missing relationships or potential logic bottlenecks?" about my own skeleton. That surfaced real problems, such as the schedule having no start times or reasons and no link between a task and its pet.
+Asking "do you notice any missing relationships or potential logic bottlenecks?" about my own skeleton surfaced real problems, such as the schedule having no start times or reasons. Asking for a list of possible improvements before building anything also helped, because I could choose which ones to keep.
+
+- How did using separate chat sessions for different phases help you stay organized?
+I treated the project as phases (design and UML, core logic, scheduling algorithms, then tests and docs) and started a fresh chat for each. Each chat had one clear goal, so the AI wasn't carrying old, half-finished ideas into new work. 
+
+- Summarize what you learned about being the "lead architect" when collaborating with powerful AI tools.
+The AI is fast and offers many ideas, but it doesn't know what the project needs. My job was to decide the design, choose which suggestions to keep, and check the results. I kept the design small by turning down extra features, and I chose the more readable code over the cleverer version. I learned to verify everything by running main.py and the tests.
 
 **b. Judgment and verification**
 
 - Describe one moment where you did not accept an AI suggestion as-is.
-A moment I didn't accept an AI suggestion as-is was with selective adoption. I suggested many additions, including specialNeeds, dueTime, frequency and a separate Schedule entry class. I only took a subset into my UML to keep the design simple. I also took the advice to drop the per-field getters, since plain attributes cover that.
-
+The AI suggested many additions, including specialNeeds, dueTime, frequency and a separate schedule entry class, and later a long list of scheduling improvements. I only took a subset to keep the design simple, and dropped the per-field getters since plain attributes cover that. When it offered two ways to detect overlaps, I kept the simpler version that is easier to read, even though the other skips some comparisons.
 
 - How did you evaluate or verify what the AI suggested?
-I ran main.py and read the actual output. I wrote tests for task completion and for adding tasks to a pet, and ran them with pytest. I confirmed the Scheduler reads tasks through the Owner's get_all_tasks() and not from a single pet, since the project requires multi-pet support.
-
+I ran main.py and read the actual output. That caught a real mistake: an AI edit shifted a list index, so the wrong tasks were marked done, and I only noticed because the output looked wrong. I also ran the tests with pytest, and checked edge cases by hand before writing them up, which corrected two claims that turned out to be wrong.
 
 ---
 
@@ -88,12 +103,25 @@ I ran main.py and read the actual output. I wrote tests for task completion and 
 **a. What you tested**
 
 - What behaviors did you test?
+I tested sorting, recurring tasks, conflict detection and plan generation:
+    - Sorting: chronological order, flexible tasks last, ties keep their order, empty list.
+    - Recurring tasks: daily and weekly tasks create the next copy, "once" tasks don't, and completing twice makes no duplicate.
+    - Conflict detection: overlaps are flagged across pets, back-to-back tasks aren't, and a bad time warns instead of crashing.
+    - Plan generation: priority order, the time budget, and a task that doesn't fit being skipped.
+
 - Why were these tests important?
+A wrong order, a dropped medication or a double-booked slot affects a real pet, and many of these bugs are silent, so only a test would catch them.
 
 **b. Confidence**
 
 - How confident are you that your scheduler works correctly?
+Confidence Level: 4 out of 5
+All 24 tests pass, and they cover the three required areas: sorting, recurrence and conflict detection. I'm not at 5 because the Streamlit app and unusual input aren't tested.
+
 - What edge cases would you test next if you had more time?
+I found these by hand and would turn them into tests:
+    - A bad time like "abc" crashes `sort_by_time` and `generate_plan`. I would validate times when a task is created.
+    - `complete_task` on a task with no pet creates a next copy that is lost.
 
 ---
 
@@ -103,10 +131,15 @@ I ran main.py and read the actual output. I wrote tests for task completion and 
 
 - What part of this project are you most satisfied with?
 
+I am most satisfied with the scheduling features and how they fit together. Sorting, filtering, recurring tasks and conflict warnings all work from the same Scheduler and show up in both main.py and the app. 
+
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
+I would make the planner and the conflict check agree. Right now conflicts are only checked on the times the owner asked for, so the planner can move a fixed-time task later with no warning. I would also validate times when a task is created.
 
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
+
+One important thing I learned is that the AI can write code quickly, but I have to decide what the system should do and check that it does it. Small steps, one change at a time, with a run of main.py or the tests after each, caught mistakes early, including some the AI made in its own code. Being clear about the design before asking for code mattered more than anything I typed into a prompt.
